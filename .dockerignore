@@ -1,0 +1,31 @@
+# .dockerignore
+
+# Git
+.git
+.gitignore
+
+# Python cache/virtual environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# IDE / OS specific
+.vscode/
+.idea/
+*.DS_Store
+
+# Test / Dev specific
+.pytest_cache/
+test_db*
+htmlcov/
+*.log
+*.env # Avoid copying .env file into image
+
+# Add any other files/folders to ignore

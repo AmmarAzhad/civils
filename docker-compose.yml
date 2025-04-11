@@ -1,0 +1,90 @@
+services:
+  # --- PostgreSQL Database Service ---
+  db:
+    image: postgres:15-alpine 
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-user} 
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-appdb}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data 
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - app_network
+    healthcheck: 
+        test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-appdb}"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+        start_period: 30s
+
+  # --- Redis Cache Service ---
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379" 
+    volumes:
+      - redis_data:/data 
+    networks:
+      - app_network
+    healthcheck: 
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+
+  # --- FastAPI Application Service ---
+  fastapi_app:
+    container_name: fastapi_service
+    build:
+      context: .
+      dockerfile: Dockerfile.fastapi
+    ports:
+      - "${FASTAPI_PORT:-8000}:8000"
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-appdb}"
+      TEST_DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_TEST_DB:-appdb}"
+      REDIS_URL: "redis://redis:6379/0"
+    volumes:
+      - ./app:/app/app
+    depends_on:
+      db: 
+        condition: service_healthy 
+      redis: 
+        condition: service_healthy
+    networks:
+      - app_network
+
+  # --- gRPC Server Service ---
+  grpc_server:
+    container_name: grpc_service
+    build:
+      context: .
+      dockerfile: Dockerfile.grpc
+    ports:
+      - "${GRPC_PORT:-50051}:50051" 
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-appdb}"
+      TEST_DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_TEST_DB:-appdb}"
+      REDIS_URL: "redis://redis:6379/0"
+    volumes:
+      - ./app:/app/app
+      - ./run_grpc_server.py:/app/run_grpc_server.py
+    depends_on:
+      db: 
+        condition: service_healthy
+    networks:
+      - app_network
+
+# --- Define Networks ---
+networks:
+  app_network:
+    driver: bridge 
+
+# --- Define Named Volumes ---
+volumes:
+  postgres_data: 
+  redis_data: 
