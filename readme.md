@@ -48,7 +48,6 @@ All services communicate over a shared Docker network (`app_network`).
 
 ## Project Structure
 
-.
 ├── alembic/                   
 │   ├── versions/              
 │   └── env.py               
